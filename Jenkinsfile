@@ -4,9 +4,9 @@ pipeline {
   agent {
     label "jenkins-jenkins-agent"
   }
-//  options {
-//    timestamps()
-//  }
+  options {
+    timestamps()
+  }
 //  parameters {
 //    choice(name: 'MINUTES_WAIT_ON_FAILURE', choices: ['2', '0', '10', '30'], description: 'The number of minutes to wait before exiting the builder pod when the pipeline fails')
 //  }
@@ -30,7 +30,7 @@ pipeline {
             globalDynamicVars.appName=pom.artifactId
             globalDynamicVars.appVersion=pom.version
             
-            globalDynamicVars.imageTag="${globalDynamicVars.appVersion}-${env.BRANCH}-${env.BUILD_NUMBER}"
+            globalDynamicVars.imageTag="${globalDynamicVars.appVersion}-${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
             globalDynamicVars.imageName=globalDynamicVars.appName.replaceAll('\\.', '-')
             globalDynamicVars.chartVersion=globalDynamicVars.imageTag.toLowerCase()
             globalDynamicVars.imageRepo=globalDynamicVars.imageName
@@ -39,13 +39,20 @@ pipeline {
           }
           
           // Install Helm
-          sh 'curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 && chmod 700 get_helm.sh && export HELM_INSTALL_DIR=${WORKSPACE}/helm_bin && ./get_helm.sh'
+          sh '''curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 && \
+                chmod 700 get_helm.sh && \
+                export USE_SUDO=false && \
+                export HELM_INSTALL_DIR=${WORKSPACE}/helm_bin && \
+                export PATH=${HELM_INSTALL_DIR}:${PATH}
+                mkdir -p ${HELM_INSTALL_DIR} && \
+                ./get_helm.sh
+              '''
           
           // Prepare and validate Helm chart
           sh "sed -i \"s@^version:.*@version: ${globalDynamicVars.chartVersion}@g\" helmChart/Chart.yaml"
-          sh "sed -i \"s@repository:.*@repository: ${args.registryImageRepo}@g\" helmChart/values.yaml"
-          sh "sed -i \"s@tag:.*@tag: ${args.imageTag}@g\" helmChart/values.yaml"
-          sh "${WORKSPACE}/helm_bin/helm lint --values dev_values.yaml helmChart"
+          sh "sed -i \"s@repository:.*@repository: ${globalDynamicVars.registryImageRepo}@g\" helmChart/values.yaml"
+          sh "sed -i \"s@tag:.*@tag: ${globalDynamicVars.imageTag}@g\" helmChart/values.yaml"
+          sh "${WORKSPACE}/helm_bin/helm lint --values helmChart/dev_values.yaml helmChart"
           
           sh 'chmod u+x mvnw'
           

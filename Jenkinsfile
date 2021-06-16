@@ -44,9 +44,12 @@ pipeline {
           
           sh 'chmod u+x mvnw'
           
+          // Install aws cli
+          sh 'curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip && unzip awscliv2.zip && ./aws/install --install-dir ${WORKSPACE}/aws_cli --bin-dir ${WORKSPACE}/aws_cli_bin'
+          
           configFileProvider([configFile(fileId: 'maven-settings', variable: 'MAVEN_SETTINGS')]) {
             script {
-              def ecrPassword=sh 'aws ecr get-login-password --region eu-west-1 --profile=default'
+              def ecrPassword=sh script: '${WORKSPACE}/aws_cli_bin/aws ecr get-login-password', returnStdout: true
               withEnv(["DOCKER_PWD=${ecrPassword}"]) {
                 sh "./mvnw -s $MAVEN_SETTINGS clean package docker:push -Ddocker.image.repo=${globalDynamicVars.registryImageRepo} -Ddocker.image.tag=${globalDynamicVars.imageTag} -Ddockerfile.username=AWS"
               }

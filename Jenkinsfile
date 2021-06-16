@@ -21,11 +21,10 @@ pipeline {
       steps {
         dir('complete') {
           script {
-            def pomFile=readFile('pom.xml')
-            def pom = new XmlParser().parseText(pomFile)
+            def pom=readMavenPom('pom.xml')
             
-            globalDynamicVars.mvnArtifactId=pom['artifactId'].text().trim()
-            globalDynamicVars.appVersion=pom['version'].text().trim()
+            globalDynamicVars.mvnArtifactId=pom.artifactId
+            globalDynamicVars.appVersion=pom.version
             
             globalDynamicVars.imageTag="${globalDynamicVars.appVersion}-${BUILD_NUMBER}"
             globalDynamicVars.imageName=globalDynamicVars.mvnArtifactId.replaceAll('.', '-')
@@ -35,13 +34,13 @@ pipeline {
             globalDynamicVars.image="${globalDynamicVars.registryImageRepo}:${globalDynamicVars.imageTag}"
           }
           
-          commonLib_configHelmCharts chartDir: "charts/${APP_NAME}", imageTag: globalDynamicVars.imageTag, chartVersion: globalDynamicVars.chartVersion, registryImageRepo: globalDynamicVars.registryImageRepo
+          //commonLib_configHelmCharts chartDir: "charts/${APP_NAME}", imageTag: globalDynamicVars.imageTag, chartVersion: globalDynamicVars.chartVersion, registryImageRepo: globalDynamicVars.registryImageRepo
           
-          commonLib_buildHelmChart chartDir: "charts/${APP_NAME}", helmRepoUrl: CHART_REPOSITORY, environmentId: 'sit'
+          //commonLib_buildHelmChart chartDir: "charts/${APP_NAME}", helmRepoUrl: CHART_REPOSITORY, environmentId: 'sit'
           
           configFileProvider(
             [configFile(fileId: 'maven-settings', variable: 'MAVEN_SETTINGS')]) {
-            sh 'mvn -s $MAVEN_SETTINGS clean package'
+            sh 'mvn -s $MAVEN_SETTINGS clean package -Ddocker.image.repo=${globalDynamicVars.registryImageRepo} -Ddocker.image.tag=${globalDynamicVars.imageTag}'
           }
           
           sh "docker build --build-arg JAR_FILE=${globalDynamicVars.mvnArtifactId}-globalDynamicVars.appVersion.jar"

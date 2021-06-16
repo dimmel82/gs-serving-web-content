@@ -5,7 +5,7 @@ pipeline {
     label "jenkins-jenkins-agent"
   }
   options {
-    timestamps()
+//    timestamps()
   }
 //  parameters {
 //    choice(name: 'MINUTES_WAIT_ON_FAILURE', choices: ['2', '0', '10', '30'], description: 'The number of minutes to wait before exiting the builder pod when the pipeline fails')

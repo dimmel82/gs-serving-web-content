@@ -1,0 +1,40 @@
+replicaCount: 1
+
+image:
+  repository: REPLACE_ME
+  tag: REPLACE_ME
+  pullPolicy: IfNotPresent
+
+service:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+
+ingress:
+  enabled: true
+  annotations:
+    alb.ingress.kubernetes.io/group.name: eks 
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 8080}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance
+    kubernetes.io/ingress.class: alb
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# livenessProbe:
+  # initialDelaySeconds: 240
+  # periodSeconds: 30
+  # failureThreshold: 3
+
+# readinessProbe:
+  # initialDelaySeconds: 240
+  # periodSeconds: 30
+  # failureThreshold: 3
+

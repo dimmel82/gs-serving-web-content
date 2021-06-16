@@ -72,6 +72,7 @@ pipeline {
           sh "${WORKSPACE}/helm_bin/helm upgrade ${globalDynamicVars.appName} --install --namespace dev-apps --create-namespace --atomic --values dev_values.yaml ."
         }
       }
+    }
   }
   post {
 		always {

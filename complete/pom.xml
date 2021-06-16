@@ -18,6 +18,8 @@
 		<java.version>1.8</java.version>
     <docker.image.repo>local/${project.artifactId}</docker.image.repo>
     <docker.image.tag>${project.version}</docker.image.tag>
+    <docker.image.tag>${project.version}</docker.image.tag>
+    <dockerfile.password>${env.DOCKER_PWD}</dockerfile.password>
 	</properties>
   
 	<dependencies>

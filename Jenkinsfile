@@ -30,7 +30,7 @@ pipeline {
             globalDynamicVars.imageTag="${globalDynamicVars.appVersion}-${BUILD_NUMBER}"
             globalDynamicVars.imageName=globalDynamicVars.mvnArtifactId.replaceAll('.', '-')
             globalDynamicVars.chartVersion=globalDynamicVars.imageTag.toLowerCase()
-            globalDynamicVars.imageRepo=globalDynamicVars.imageName"
+            globalDynamicVars.imageRepo=globalDynamicVars.imageName
             globalDynamicVars.registryImageRepo="${DOCKER_REGISTRY_REPO_URL}/${globalDynamicVars.imageRepo}"
             globalDynamicVars.image="${globalDynamicVars.registryImageRepo}:${globalDynamicVars.imageTag}"
           }

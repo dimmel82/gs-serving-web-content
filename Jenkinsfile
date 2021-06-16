@@ -17,9 +17,9 @@ pipeline {
     SONARQUBE_PROJECT_NAME = "${env.APP_NAME}-${env.ENVIRONMENT_ID}"
     SONARQUBE_SERVER_ID = 'sonarqube'
   }
-  tools {
-    dockerTool 'docker' 
-  }
+//  tools {
+//    dockerTool 'docker' 
+//  }
   stages {
     stage('Build') {
       steps {
@@ -31,10 +31,10 @@ pipeline {
             globalDynamicVars.appVersion=pom.version
             
             globalDynamicVars.imageTag="${globalDynamicVars.appVersion}-${BUILD_NUMBER}"
-            globalDynamicVars.imageName=globalDynamicVars.mvnArtifactId.replaceAll('.', '-')
+            globalDynamicVars.imageName=globalDynamicVars.mvnArtifactId.replaceAll('\\.', '-')
             globalDynamicVars.chartVersion=globalDynamicVars.imageTag.toLowerCase()
             globalDynamicVars.imageRepo=globalDynamicVars.imageName
-            globalDynamicVars.registryImageRepo="${DOCKER_REGISTRY_REPO_URL}/${globalDynamicVars.imageRepo}"
+            globalDynamicVars.registryImageRepo="${DOCKER_REGISTRY_HOST}/${globalDynamicVars.imageRepo}"
             globalDynamicVars.image="${globalDynamicVars.registryImageRepo}:${globalDynamicVars.imageTag}"
           }
           
@@ -50,8 +50,10 @@ pipeline {
           configFileProvider([configFile(fileId: 'maven-settings', variable: 'MAVEN_SETTINGS')]) {
             script {
               def ecrPassword=sh script: '${WORKSPACE}/aws_cli_bin/aws ecr get-login-password', returnStdout: true
+              sh script: "${WORKSPACE}/aws_cli_bin/aws ecr create-repository --repository-name ${globalDynamicVars.imageRepo}", returnStatus: true
+              
               withEnv(["DOCKER_PWD=${ecrPassword}"]) {
-                sh "./mvnw -s $MAVEN_SETTINGS clean package docker:push -Ddocker.image.repo=${globalDynamicVars.registryImageRepo} -Ddocker.image.tag=${globalDynamicVars.imageTag} -Ddockerfile.username=AWS"
+                sh "./mvnw -s $MAVEN_SETTINGS clean package dockerfile:push -Ddocker.image.repo=${globalDynamicVars.registryImageRepo} -Ddocker.image.tag=${globalDynamicVars.imageTag} -Ddockerfile.username=AWS"
               }
             }
           }
@@ -61,7 +63,8 @@ pipeline {
   }
   post {
 		always {
-      sleep 10000
+//      sleep 10000
+      echo 'test'
 /*		script {
 				slackSend(
 						color: (currentBuild.currentResult == 'SUCCESS') ? 'good' : 'danger',

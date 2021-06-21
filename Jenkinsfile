@@ -14,7 +14,6 @@ pipeline {
     AWS_CREDENTIALS = credentials('aws')
     AWS_ACCESS_KEY_ID = "${env.AWS_CREDENTIALS_USR}"
     AWS_SECRET_ACCESS_KEY = "${env.AWS_CREDENTIALS_PSW}"
-    SONARQUBE_PROJECT_NAME = "${env.APP_NAME}-${env.ENVIRONMENT_ID}"
     SONARQUBE_SERVER_ID = 'sonarqube'
   }
 //  tools {
@@ -81,11 +80,11 @@ pipeline {
             configFileProvider([configFile(fileId: 'maven-settings', variable: 'MAVEN_SETTINGS')]) {
               withSonarQubeEnv('sonarqube') {
                 sh """\\
-                  ./mvnw -s $MAVEN_SETTINGS org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar -Dsonar.projectKey=${env.SONARQUBE_PRODUCT} -Dsonar.projectName=${env.SONARQUBE_PRODUCT} -Dsonar.projectVersion=${env.SONARQUBE_RELEASE} -Dsonar.buildString=${env.SONARQUBE_RELEASE} \\
-                  -Dsonar.projectKey=${SONARQUBE_PROJECT_NAME} \\
-                  -Dsonar.projectName=${SONARQUBE_PROJECT_NAME} \\
+                  ./mvnw -s $MAVEN_SETTINGS org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar \\
+                  -Dsonar.projectKey=${globalDynamicVars.appName} \\
+                  -Dsonar.projectName=${globalDynamicVars.appName} \\
                   -Dsonar.projectVersion=${globalDynamicVars.appVersion} \\
-                  -Dsonar.buildString=Jenkins-${BRANCH_NAME}-BLD${BUILD_NUMBER} \\
+                  -Dsonar.buildString=Jenkins-${env.BRANCH_NAME}-${env.BUILD_NUMBER} \\
                   -Dsonar.projectBaseDir=${WORKSPACE} \\
                   -Dsonar.links.ci=${BUILD_URL} \\
                   -Dsonar.links.scm=${gitUrl}
@@ -104,10 +103,11 @@ pipeline {
       when { branch 'develop' }
       steps {
         script {
-          def appSecret=sh script: '${WORKSPACE}/aws_cli_bin/aws get-parameter --name demo-secret --with-decryption', returnStdout: true
+          def appSecretJson=sh script: '${WORKSPACE}/aws_cli_bin/aws ssm get-parameter --name demo-secret --with-decryption', returnStdout: true
+          def appSecretValue=readJSON(text: appSecretJson).Parameter.Value
           
           dir('complete/helmChart') {
-            sh "${WORKSPACE}/helm_bin/helm upgrade ${globalDynamicVars.appName} --install --namespace dev-apps --create-namespace --atomic --set-string appSecret=\"${appSecret}\" --values dev_values.yaml ."
+            sh "${WORKSPACE}/helm_bin/helm upgrade ${globalDynamicVars.appName} --install --namespace dev-apps --create-namespace --atomic --set-string appSecret=\"${appSecretValue}\" --values dev_values.yaml ."
           }
         }
       }

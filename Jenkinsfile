@@ -70,6 +70,12 @@ pipeline {
           }
         }
       }
+      post {
+        always {
+          //Publish test results with JUnit plugin
+          junit testResults: 'complete/target/surefire-reports/TEST-*.xml', allowEmptyResults: true
+        }
+      }
     }
     stage('SonarQube') {
       steps {

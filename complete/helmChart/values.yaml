@@ -3,6 +3,9 @@
 
 replicaCount: 1
 
+deploymentStrategy:
+  type: RollingUpdate
+
 image:
   repository: REPLACE_ME
   tag: REPLACE_ME

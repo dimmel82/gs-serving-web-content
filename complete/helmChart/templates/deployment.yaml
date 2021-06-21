@@ -9,6 +9,8 @@ spec:
   selector:
     matchLabels:
       {{- include "selectorLabels" . | nindent 6 }}
+  strategy:
+    {{- toYaml .Values.deploymentStrategy | nindent 4 }}
   template:
     metadata:
     {{- with .Values.podAnnotations }}
@@ -19,40 +21,42 @@ spec:
         {{- include "selectorLabels" . | nindent 8 }}
     spec:
       containers:
-        - name: {{ .Chart.Name }}
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env:
-            - name: SPRING_MYSECRET
-              value: {{ .Values.appSecret }}
-          {{- if .Values.env }}
-            {{- range $pkey, $pval := .Values.env }}
-            - name: {{ $pkey }}
-              value: {{ quote $pval }}
-            {{- end }}
-          {{- end }}
+      - name: {{ .Chart.Name }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: SPRING_MYSECRET
+          value: {{ .Values.appSecret }}
+        {{- if .Values.env }}
+        {{- range $pkey, $pval := .Values.env }}
+        - name: {{ $pkey }}
+          value: {{ quote $pval }}
+        {{- end }}
+        {{- end }}
 
-          ports:
-            - containerPort: {{ .Values.service.targetPort }}
-          {{- if .Values.livenessProbe }}
-          livenessProbe:
-            httpGet:
-              path: /ping
-              port: valueboard
-            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
-            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
-            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
-          {{- end }}
-          {{- if .Values.readinessProbe }}
-          readinessProbe:
-            httpGet:
-              path: /ping
-              port: valueboard
-            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
-            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
-            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
-          {{- end }}
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+        ports:
+        - containerPort: {{ .Values.service.targetPort }}
+        {{- if .Values.livenessProbe }}
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: valueboard
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        {{- end }}
+        {{- if .Values.readinessProbe }}
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: valueboard
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}

@@ -4,9 +4,9 @@ pipeline {
   agent {
     label "jenkins-jenkins-agent"
   }
-//  options {
-//    timestamps()
-//  }
+  options {
+    timestamps()
+  }
 //  parameters {
 //    choice(name: 'MINUTES_WAIT_ON_FAILURE', choices: ['2', '0', '10', '30'], description: 'The number of minutes to wait before exiting the builder pod when the pipeline fails')
 //  }
@@ -14,7 +14,6 @@ pipeline {
     AWS_CREDENTIALS = credentials('aws')
     AWS_ACCESS_KEY_ID = "${env.AWS_CREDENTIALS_USR}"
     AWS_SECRET_ACCESS_KEY = "${env.AWS_CREDENTIALS_PSW}"
-    SONARQUBE_PROJECT_NAME = "${env.APP_NAME}-${env.ENVIRONMENT_ID}"
     SONARQUBE_SERVER_ID = 'sonarqube'
   }
 //  tools {
@@ -30,7 +29,7 @@ pipeline {
             globalDynamicVars.appName=pom.artifactId
             globalDynamicVars.appVersion=pom.version
             
-            globalDynamicVars.imageTag="${globalDynamicVars.appVersion}-${env.BRANCH}-${env.BUILD_NUMBER}"
+            globalDynamicVars.imageTag="${globalDynamicVars.appVersion}-${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
             globalDynamicVars.imageName=globalDynamicVars.appName.replaceAll('\\.', '-')
             globalDynamicVars.chartVersion=globalDynamicVars.imageTag.toLowerCase()
             globalDynamicVars.imageRepo=globalDynamicVars.imageName
@@ -39,13 +38,20 @@ pipeline {
           }
           
           // Install Helm
-          sh 'curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 && chmod 700 get_helm.sh && export HELM_INSTALL_DIR=${WORKSPACE}/helm_bin && ./get_helm.sh'
+          sh '''curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 && \
+                chmod 700 get_helm.sh && \
+                export USE_SUDO=false && \
+                export HELM_INSTALL_DIR=${WORKSPACE}/helm_bin && \
+                export PATH=${HELM_INSTALL_DIR}:${PATH}
+                mkdir -p ${HELM_INSTALL_DIR} && \
+                ./get_helm.sh
+              '''
           
           // Prepare and validate Helm chart
           sh "sed -i \"s@^version:.*@version: ${globalDynamicVars.chartVersion}@g\" helmChart/Chart.yaml"
-          sh "sed -i \"s@repository:.*@repository: ${args.registryImageRepo}@g\" helmChart/values.yaml"
-          sh "sed -i \"s@tag:.*@tag: ${args.imageTag}@g\" helmChart/values.yaml"
-          sh "${WORKSPACE}/helm_bin/helm lint --values dev_values.yaml helmChart"
+          sh "sed -i \"s@repository:.*@repository: ${globalDynamicVars.registryImageRepo}@g\" helmChart/values.yaml"
+          sh "sed -i \"s@tag:.*@tag: ${globalDynamicVars.imageTag}@g\" helmChart/values.yaml"
+          sh "${WORKSPACE}/helm_bin/helm lint --values helmChart/dev_values.yaml helmChart"
           
           sh 'chmod u+x mvnw'
           
@@ -64,27 +70,62 @@ pipeline {
           }
         }
       }
+      post {
+        always {
+          //Publish test results with JUnit plugin
+          junit testResults: 'complete/target/surefire-reports/TEST-*.xml', allowEmptyResults: true
+        }
+      }
+    }
+    stage('SonarQube') {
+      steps {
+        dir('complete') {
+          script{
+            def gitUrl = sh(script: 'git config remote.origin.url', returnStdout: true).trim()
+            
+            configFileProvider([configFile(fileId: 'maven-settings', variable: 'MAVEN_SETTINGS')]) {
+              withSonarQubeEnv('sonarqube') {
+                sh """\\
+                  ./mvnw -s $MAVEN_SETTINGS org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar \\
+                  -Dsonar.projectKey=${globalDynamicVars.appName} \\
+                  -Dsonar.projectName=${globalDynamicVars.appName} \\
+                  -Dsonar.projectVersion=${globalDynamicVars.appVersion} \\
+                  -Dsonar.buildString=Jenkins-${env.BRANCH_NAME}-${env.BUILD_NUMBER} \\
+                  -Dsonar.projectBaseDir=${WORKSPACE} \\
+                  -Dsonar.links.ci=${BUILD_URL} \\
+                  -Dsonar.links.scm=${gitUrl}
+                """.stripIndent()
+              }
+            }
+          }
+          
+          timeout(time: 3, unit: 'MINUTES') {
+            waitForQualityGate abortPipeline: true
+          }
+        }
+      }
     }
     stage('Deploy Dev') {
       when { branch 'develop' }
       steps {
-        dir('complete/helmChart') {
-          sh "${WORKSPACE}/helm_bin/helm upgrade ${globalDynamicVars.appName} --install --namespace dev-apps --create-namespace --atomic --values dev_values.yaml ."
+        script {
+          def appSecretJson=sh script: '${WORKSPACE}/aws_cli_bin/aws ssm get-parameter --name demo-secret --with-decryption', returnStdout: true
+          def appSecretValue=readJSON(text: appSecretJson).Parameter.Value
+          
+          dir('complete/helmChart') {
+            sh "${WORKSPACE}/helm_bin/helm upgrade ${globalDynamicVars.appName} --install --namespace dev-apps --create-namespace --atomic --set-string appSecret=\"${appSecretValue}\" --values dev_values.yaml ."
+          }
         }
       }
     }
   }
   post {
-		always {
-//      sleep 10000
-      echo 'test'
-/*		script {
-				slackSend(
-						color: (currentBuild.currentResult == 'SUCCESS') ? 'good' : 'danger',
-						channel: '#sagan-content',
-						message: "${currentBuild.fullDisplayName} - `${currentBuild.currentResult}`\n${env.BUILD_URL}")
-      }
-*/
-		}
+    always {
+      slackSend(
+        color: (currentBuild.currentResult == 'SUCCESS') ? 'good' : 'danger',
+        channel: '#demo-app',
+        message: "${currentBuild.fullDisplayName} - `${currentBuild.currentResult}`\n${env.BUILD_URL}"
+      )
+    }
   }
 }

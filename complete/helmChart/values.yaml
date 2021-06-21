@@ -1,4 +1,10 @@
+# Set the app secret
+# appSecret: 
+
 replicaCount: 1
+
+deploymentStrategy:
+  type: RollingUpdate
 
 image:
   repository: REPLACE_ME
@@ -7,9 +13,8 @@ image:
 
 service:
   type: NodePort
-  ports:
-  - port: 8080
-    targetPort: 8080
+  port: 8080
+  targetPort: 8080
 
 ingress:
   enabled: true
@@ -22,11 +27,11 @@ ingress:
 
 resources:
   limits:
-    cpu: 500m
-    memory: 512Mi
+    cpu: "0.3"
+    memory: 256Mi
   requests:
     cpu: 100m
-    memory: 256Mi
+    memory: 128Mi
 
 # livenessProbe:
   # initialDelaySeconds: 240

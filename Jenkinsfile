@@ -114,16 +114,12 @@ pipeline {
     }
   }
   post {
-		always {
-//      sleep 10000
-      echo 'test'
-/*		script {
-				slackSend(
-						color: (currentBuild.currentResult == 'SUCCESS') ? 'good' : 'danger',
-						channel: '#sagan-content',
-						message: "${currentBuild.fullDisplayName} - `${currentBuild.currentResult}`\n${env.BUILD_URL}")
-      }
-*/
-		}
+    always {
+      slackSend(
+        color: (currentBuild.currentResult == 'SUCCESS') ? 'good' : 'danger',
+        channel: '#demo-app',
+        message: "${currentBuild.fullDisplayName} - `${currentBuild.currentResult}`\n${env.BUILD_URL}"
+      )
+    }
   }
 }

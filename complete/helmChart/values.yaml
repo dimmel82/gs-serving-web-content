@@ -1,3 +1,6 @@
+# Set the app secret
+# appSecret: 
+
 replicaCount: 1
 
 image:

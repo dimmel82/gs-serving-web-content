@@ -72,11 +72,43 @@ pipeline {
         }
       }
     }
+    stage('SonarQube') {
+      steps {
+        dir('complete') {
+          script{
+            def gitUrl = sh(script: 'git config remote.origin.url', returnStdout: true).trim()
+            
+            configFileProvider([configFile(fileId: 'maven-settings', variable: 'MAVEN_SETTINGS')]) {
+              withSonarQubeEnv('sonarqube') {
+                sh """\\
+                  ./mvnw -s $MAVEN_SETTINGS org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar -Dsonar.projectKey=${env.SONARQUBE_PRODUCT} -Dsonar.projectName=${env.SONARQUBE_PRODUCT} -Dsonar.projectVersion=${env.SONARQUBE_RELEASE} -Dsonar.buildString=${env.SONARQUBE_RELEASE} \\
+                  -Dsonar.projectKey=${SONARQUBE_PROJECT_NAME} \\
+                  -Dsonar.projectName=${SONARQUBE_PROJECT_NAME} \\
+                  -Dsonar.projectVersion=${globalDynamicVars.appVersion} \\
+                  -Dsonar.buildString=Jenkins-${BRANCH_NAME}-BLD${BUILD_NUMBER} \\
+                  -Dsonar.projectBaseDir=${WORKSPACE} \\
+                  -Dsonar.links.ci=${BUILD_URL} \\
+                  -Dsonar.links.scm=${gitUrl}
+                """.stripIndent()
+              }
+            }
+          }
+          
+          timeout(time: 3, unit: 'MINUTES') {
+            waitForQualityGate abortPipeline: true
+          }
+        }
+      }
+    }
     stage('Deploy Dev') {
       when { branch 'develop' }
       steps {
-        dir('complete/helmChart') {
-          sh "${WORKSPACE}/helm_bin/helm upgrade ${globalDynamicVars.appName} --install --namespace dev-apps --create-namespace --atomic --values dev_values.yaml ."
+        script {
+          def appSecret=sh script: '${WORKSPACE}/aws_cli_bin/aws get-parameter --name demo-secret --with-decryption', returnStdout: true
+          
+          dir('complete/helmChart') {
+            sh "${WORKSPACE}/helm_bin/helm upgrade ${globalDynamicVars.appName} --install --namespace dev-apps --create-namespace --atomic --set-string appSecret=\"${appSecret}\" --values dev_values.yaml ."
+          }
         }
       }
     }

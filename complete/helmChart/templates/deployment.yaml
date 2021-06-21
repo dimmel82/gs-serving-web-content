@@ -24,8 +24,10 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if .Values.env }}
           env:
+            - name: SPRING_MYSECRET
+              value: {{ .Values.appSecret }}
+          {{- if .Values.env }}
             {{- range $pkey, $pval := .Values.env }}
             - name: {{ $pkey }}
               value: {{ quote $pval }}
